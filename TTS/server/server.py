@@ -2,6 +2,7 @@
 import argparse
 import io
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -13,6 +14,8 @@ from TTS.config import load_config
 from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
 
+logger = logging.getLogger('provide_logger_for_flask')
+logger.setLevel(logging.DEBUG)
 
 def create_argparser():
     def convert_boolean(x):
