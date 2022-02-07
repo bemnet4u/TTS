@@ -1,21 +1,21 @@
 #!flask/bin/python
 import argparse
+from array import array
 import io
 import json
-import logging
 import os
 import sys
 from pathlib import Path
 from typing import Union
+from ast import literal_eval
 
 from flask import Flask, render_template, request, send_file
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from TTS.config import load_config
 from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
-
-logger = logging.getLogger('provide_logger_for_flask')
-logger.setLevel(logging.DEBUG)
 
 def create_argparser():
     def convert_boolean(x):
@@ -58,6 +58,7 @@ def create_argparser():
     parser.add_argument("--use_cuda", type=convert_boolean, default=False, help="true to use CUDA.")
     parser.add_argument("--debug", type=convert_boolean, default=False, help="true to enable Flask debug mode.")
     parser.add_argument("--show_details", type=convert_boolean, default=False, help="Generate model detail page.")
+    parser.add_argument("--rate_limit", type=str, default="", help='Rate limit. Eg. ["200 per day", "50 per hour"].')
     return parser
 
 
@@ -120,6 +121,14 @@ speaker_manager = getattr(synthesizer.tts_model, "speaker_manager", None)
 use_gst = synthesizer.tts_config.get("use_gst", False)
 app = Flask(__name__)
 
+if args.rate_limit is not None and args.rate_limit != "":
+    limit = literal_eval(args.rate_limit)
+    print("Using rate limit: {}".format(limit))
+    limiter = Limiter(
+        app,
+        key_func=get_remote_address,
+        default_limits=limit
+    )
 
 def style_wav_uri_to_dict(style_wav: str) -> Union[str, dict]:
     """Transform an uri style_wav, in either a string (path to wav file to be use for style transfer)

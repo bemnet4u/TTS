@@ -662,6 +662,7 @@ class Vits(BaseTTS):
         )
         return outputs
 
+    @torch.no_grad()
     def inference(self, x, aux_input={"d_vectors": None, "speaker_ids": None, "language_ids": None}):
         """
         Shapes:

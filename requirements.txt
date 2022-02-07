@@ -1,5 +1,6 @@
 cython
 flask
+Flask-Limiter
 gdown
 inflect
 jieba
