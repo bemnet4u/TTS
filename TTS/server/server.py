@@ -3,19 +3,32 @@ import argparse
 from array import array
 import io
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Union
 from ast import literal_eval
+from uuid import uuid4
+from urllib.parse import unquote
+from concurrent.futures import ThreadPoolExecutor
 
-from flask import Flask, render_template, request, send_file
+from flask import Flask, abort, jsonify, render_template, request, send_file
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 from TTS.config import load_config
 from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.getLevelName('INFO'))
+log_formatter = logging.Formatter("%(asctime)s tid=%(thread)d tname=[%(threadName)s] [%(levelname)s] %(name)s: %(message)s  ")
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
+jobs = dict()
 
 def create_argparser():
     def convert_boolean(x):
@@ -59,6 +72,7 @@ def create_argparser():
     parser.add_argument("--debug", type=convert_boolean, default=False, help="true to enable Flask debug mode.")
     parser.add_argument("--show_details", type=convert_boolean, default=False, help="Generate model detail page.")
     parser.add_argument("--rate_limit", type=str, default="", help='Rate limit. Eg. ["200 per day", "50 per hour"].')
+    parser.add_argument("--executors", type=str, default=5, help='Number of executors')
     return parser
 
 
@@ -102,6 +116,8 @@ if args.vocoder_path is not None:
     vocoder_path = args.vocoder_path
     vocoder_config_path = args.vocoder_config_path
 
+executor = ThreadPoolExecutor(args.executors)
+
 # load models
 synthesizer = Synthesizer(
     tts_checkpoint=model_path,
@@ -123,7 +139,7 @@ app = Flask(__name__)
 
 if args.rate_limit is not None and args.rate_limit != "":
     limit = literal_eval(args.rate_limit)
-    print("Using rate limit: {}".format(limit))
+    logger.info("Using rate limit: {}".format(limit))
     limiter = Limiter(
         app,
         key_func=get_remote_address,
@@ -184,12 +200,59 @@ def tts():
     style_wav = request.args.get("style_wav", "")
 
     style_wav = style_wav_uri_to_dict(style_wav)
-    print(" > Model input: {}".format(text))
+    logger.info(" > Model input: {}".format(text))
     wavs = synthesizer.tts(text, speaker_name=speaker_idx, style_wav=style_wav)
     out = io.BytesIO()
     synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
 
+
+@app.route("/api/tts_async", methods=["GET"])
+def tts_async():
+    text = unquote(request.args.get("text"))
+    speaker_idx = unquote(request.args.get("speaker_id", ""))
+    style_wav = unquote(request.args.get("style_wav", ""))
+    id = str(uuid4())
+    logger.info("Submitting request with id %s, text: %s", id, text)
+    executor.submit(_tts_async, id, text, speaker_idx, style_wav)
+    jobs[id] = {"status": "submitted"}
+    return jsonify({"id": id, "status": "submitted"})
+
+
+def _tts_async(id, text, speaker_idx, style_wav):
+    try:
+        jobs[id] = {"status": "running"}
+        style_wav = style_wav_uri_to_dict(style_wav)
+        logger.info("Running model with id: %s input: %s", id, text)
+        wavs = synthesizer.tts(text, speaker_name=speaker_idx, style_wav=style_wav)
+        out = io.BytesIO()
+        synthesizer.save_wav(wavs, out)
+        jobs[id] = {"status": "finished", "audio": out}
+        logger.info("Finished synthesising id: %s input: %s", id, text)
+    except Exception as ex:
+        logger.error(ex)
+        jobs[id] = {"status": "error", "message": str(ex)}
+
+@app.route("/api/tts_async/status", methods=["GET"])
+def tts_async_status():
+    id = unquote(request.args.get("id"))
+    if id in jobs:
+        status = jobs[id]["status"]
+        logger.info("Querying model status id: %s status: %s", id, status)
+        return jsonify({"status": status})
+    else:
+        abort(404)
+
+@app.route("/api/tts_async/audio", methods=["GET"])
+def tts_async_audio():
+    id = unquote(request.args.get("id"))
+    logger.info("tts_async_audio called with id: %s", id)
+    if id in jobs and jobs[id]["status"] == 'finished' and jobs[id]["audio"] is not None:
+        logger.info("Downloading audio with id: %s", id)
+        out = jobs.pop(id)
+        return send_file(out["audio"], mimetype="audio/wav")
+    else:
+        abort(404)
 
 def main():
     app.run(debug=args.debug, host="::", port=args.port)
