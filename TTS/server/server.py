@@ -72,7 +72,7 @@ def create_argparser():
     parser.add_argument("--debug", type=convert_boolean, default=False, help="true to enable Flask debug mode.")
     parser.add_argument("--show_details", type=convert_boolean, default=False, help="Generate model detail page.")
     parser.add_argument("--rate_limit", type=str, default="", help='Rate limit. Eg. ["200 per day", "50 per hour"].')
-    parser.add_argument("--executors", type=str, default=5, help='Number of executors')
+    parser.add_argument("--executors", type=int, default=5, help='Number of executors')
     return parser
 
 
@@ -116,7 +116,7 @@ if args.vocoder_path is not None:
     vocoder_path = args.vocoder_path
     vocoder_config_path = args.vocoder_config_path
 
-executor = ThreadPoolExecutor(args.executors)
+executor = ThreadPoolExecutor(int(args.executors))
 
 # load models
 synthesizer = Synthesizer(
