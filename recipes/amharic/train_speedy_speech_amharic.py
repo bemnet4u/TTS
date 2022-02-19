@@ -67,11 +67,10 @@ config = SpeedySpeechConfig(
         "phonemes": None,
         "unique": True,
     },
-    test_sentences=[
-        ["የጌታችንም ጸጋ በክርስቶስ ኢየሱስ", "amharic",None,"am_ET"],
-        ["ትዕግስቱን ሁሉ ያሳይ ዘንድ ምህረትን አገኘሁ።", "amharic",None,"am_ET"],
-        ["ሴት በነገር ሁሉ እየተገዛች በዝግታ ትማር", "amharic",None,"am_ET"],
-        ["እግዚአብሔርን ለመምሰል ግን ራስህን አስለምድ።", "amharic",None,"am_ET"]
+    test_sentences=["የጌታችንም ጸጋ በክርስቶስ ኢየሱስ", 
+                    "ትዕግስቱን ሁሉ ያሳይ ዘንድ ምህረትን አገኘሁ።", 
+                    "ሴት በነገር ሁሉ እየተገዛች በዝግታ ትማር", 
+                    "እግዚአብሔርን ለመምሰል ግን ራስህን አስለምድ።"
     ]
 )
 
