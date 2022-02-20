@@ -76,6 +76,7 @@ class Conv1dBNBlock(nn.Module):
         Shapes:
             x: (B, D, T)
         """
+        print(x)
         return self.conv_bn_blocks(x)
 
 
