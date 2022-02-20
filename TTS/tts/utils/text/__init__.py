@@ -206,7 +206,6 @@ def text_to_sequence(
     _symbol_to_id = {s: i for i, s in enumerate(_symbols)}
 
     sequence = []
-    print("syntesising text: {}".format(text))
     # Check for curly braces and treat their contents as ARPAbet:
     while text:
         m = _CURLY_RE.match(text)
