@@ -35,20 +35,18 @@ config = SpeedySpeechConfig(
     audio=audio_config,
     batch_size=32,
     eval_batch_size=16,
-    num_loader_workers=8,
-    num_eval_loader_workers=8,
-    log_model_step=1000,
-    save_step=2500,
+    num_loader_workers=4,
+    num_eval_loader_workers=4,
     compute_input_seq_cache=True,
-    compute_f0=False, # error:   File "pyworld/pyworld.pyx", line 141, in pyworld.pyworld.dio TypeError: must be real number, not NoneType
-    f0_cache_path=os.path.join(output_path, "f0_cache"),
     run_eval=True,
     test_delay_epochs=-1,
     epochs=1000,
+    log_model_step=1000,
+    save_step=2500,
     text_cleaner="multilingual_cleaners",
     use_phonemes=False,
-    use_espeak_phonemes=False,
     phoneme_language="am-ET",
+    use_espeak_phonemes=False,
     phoneme_cache_path=os.path.join(output_path, "phoneme_cache"),
     print_step=50,
     print_eval=False,
@@ -57,7 +55,6 @@ config = SpeedySpeechConfig(
     max_seq_len=500000,
     output_path=output_path,
     datasets=[dataset_config],
-    use_speaker_embedding=True,
     characters={
         "pad": "_",
         "eos": "&",
@@ -75,19 +72,13 @@ config = SpeedySpeechConfig(
 )
 
 # init audio processor
-ap = AudioProcessor(**config.audio)
+ap = AudioProcessor(**config.audio.to_dict())
 
 # load training samples
 train_samples, eval_samples = load_tts_samples(dataset_config, eval_split=True)
 
-# init speaker manager for multi-speaker training
-# it maps speaker-id to speaker-name in the model and data-loader
-speaker_manager = SpeakerManager()
-speaker_manager.set_speaker_ids_from_data(train_samples + eval_samples)
-config.model_args.num_speakers = speaker_manager.num_speakers
-
 # init model
-model = ForwardTTS(config, speaker_manager)
+model = ForwardTTS(config)
 
 # init the trainer and 🚀
 trainer = Trainer(
