@@ -18,6 +18,8 @@ import hashlib
 from flask import Flask, abort, jsonify, render_template, request, send_file
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_cors import CORS
+
 
 from TTS.config import load_config
 from TTS.utils.manage import ModelManager
@@ -138,6 +140,7 @@ speaker_manager = getattr(synthesizer.tts_model, "speaker_manager", None)
 # TODO: set this from SpeakerManager
 use_gst = synthesizer.tts_config.get("use_gst", False)
 app = Flask(__name__)
+CORS(app)
 
 if args.rate_limit is not None and args.rate_limit != "":
     limit = literal_eval(args.rate_limit)

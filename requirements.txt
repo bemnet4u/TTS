@@ -1,6 +1,7 @@
 cython
 flask
 Flask-Limiter
+flask-cors
 gdown
 inflect
 jieba
