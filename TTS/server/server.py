@@ -6,14 +6,12 @@ import json
 import logging
 import os
 import sys
-import re
 from pathlib import Path
 from typing import Union
 from ast import literal_eval
 from uuid import uuid4
 from urllib.parse import unquote
 from concurrent.futures import ThreadPoolExecutor
-import hashlib
 
 from flask import Flask, abort, jsonify, render_template, request, send_file
 from flask_limiter import Limiter
@@ -211,24 +209,18 @@ def tts():
     synthesizer.save_wav(wavs, out)
     return send_file(out, mimetype="audio/wav")
 
-cache = "/cache"
+
 @app.route("/api/tts_async", methods=["GET"])
 def tts_async():
-    text = unquote(request.args.get("text")).strip()
-    text = re.sub('\s+',' ',text)
+    text = unquote(request.args.get("text"))
     speaker_idx = unquote(request.args.get("speaker_id", ""))
     style_wav = unquote(request.args.get("style_wav", ""))
-    id = hashlib.md5(text.encode()).hexdigest()
-    wav_file = "{}/{}.wav".format(cache, id)
-    if os.path.exists(wav_file): 
-        logger.info("File %s found in cache", wav_file)
-        jobs[id] = {"status": "finished", "audio": wav_file}
-        return jsonify({"id": id, "status": "finished"})
-    else:
-        logger.info("Submitting request with id %s, text: %s", id, text)
-        executor.submit(_tts_async, id, text, speaker_idx, style_wav)
-        jobs[id] = {"status": "submitted"}
-        return jsonify({"id": id, "status": "submitted"})
+    id = str(uuid4())
+    logger.info("Submitting request with id %s, text: %s", id, text)
+    executor.submit(_tts_async, id, text, speaker_idx, style_wav)
+    jobs[id] = {"status": "submitted"}
+    return jsonify({"id": id, "status": "submitted"})
+
 
 def _tts_async(id, text, speaker_idx, style_wav):
     try:
@@ -236,7 +228,7 @@ def _tts_async(id, text, speaker_idx, style_wav):
         style_wav = style_wav_uri_to_dict(style_wav)
         logger.info("Running model with id: %s input: %s", id, text)
         wavs = synthesizer.tts(text, speaker_name=speaker_idx, style_wav=style_wav)
-        out =  "{}/{}.wav".format(cache, id)
+        out = io.BytesIO()
         synthesizer.save_wav(wavs, out)
         jobs[id] = {"status": "finished", "audio": out}
         logger.info("Finished synthesising id: %s input: %s", id, text)
